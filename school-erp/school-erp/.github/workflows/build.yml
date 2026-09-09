@@ -1,0 +1,66 @@
+name: Build Ready-to-Deploy Package
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout overlay code
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, exif, pcntl
+
+      - name: Create fresh Laravel skeleton
+        run: composer create-project laravel/laravel:^11.0 app --no-interaction --prefer-dist
+
+      - name: Apply School ERP code on top
+        run: |
+          cp -r overlay/school-erp/app/* app/app/
+          cp -r overlay/school-erp/database/* app/database/
+          cp -r overlay/school-erp/routes/* app/routes/
+          cp -r overlay/school-erp/resources/* app/resources/
+          cp overlay/school-erp/bootstrap/app.php app/bootstrap/app.php
+
+      - name: Install production dependencies
+        working-directory: app
+        run: composer install --optimize-autoloader --no-dev --no-interaction
+
+      - name: Prepare .env with a real APP_KEY
+        working-directory: app
+        run: |
+          cp .env.example .env
+          sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
+          sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=sync/' .env
+          php artisan key:generate --force
+          echo "----- Generated .env -----"
+          cat .env
+
+      - name: Copy the ready SQL import file alongside
+        run: cp overlay/school-erp/database/school_erp_full.sql app/school_erp_full.sql
+
+      - name: Remove dev-only files not needed on shared hosting
+        working-directory: app
+        run: rm -rf tests .git .github
+
+      - name: Package everything into one zip
+        run: |
+          cd app
+          zip -r ../school-erp-ready-to-upload.zip . -x "node_modules/*"
+
+      - name: Upload as downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: school-erp-ready-to-upload
+          path: school-erp-ready-to-upload.zip
+          retention-days: 14

@@ -1,0 +1,19 @@
+@extends('layouts.teacher')
+@section('page-title', 'ড্যাশবোর্ড')
+@section('content')
+<div class="bg-white rounded shadow p-4 mb-6">
+    <h2 class="font-semibold mb-2">স্বাগতম, {{ auth()->user()->name }}</h2>
+    <p class="text-sm text-gray-500">এমপ্লয়ি আইডি: {{ $teacher?->employee_id }}</p>
+</div>
+<div class="bg-white rounded shadow p-4">
+    <h2 class="font-semibold mb-3">সাম্প্রতিক নোটিশ</h2>
+    @forelse ($notices as $notice)
+        <div class="border-b py-2">
+            <p class="font-medium">{{ $notice->title }}</p>
+            <p class="text-sm text-gray-500">{{ $notice->publish_date->format('d M, Y') }}</p>
+        </div>
+    @empty
+        <p class="text-gray-500 text-sm">কোনো নোটিশ নেই।</p>
+    @endforelse
+</div>
+@endsection
